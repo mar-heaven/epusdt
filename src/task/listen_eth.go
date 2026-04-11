@@ -142,7 +142,7 @@ func StartEthereumWebSocketListener() {
 				blockTsMs = int64(header.Time) * 1000
 			}
 
-			service.TryProcessEthereumERC20Transfer(vLog.Address, toAddr, rawValue, vLog.TxHash.Hex(), blockTsMs)
+			service.TryProcessEthereumERC20Transfer(vLog.Address, toAddr, amount, vLog.TxHash.Hex(), blockTsMs)
 		}
 	}
 }
