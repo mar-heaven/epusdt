@@ -131,8 +131,6 @@ func StartEthereumWebSocketListener() {
 			}
 			log.Sugar.Infoln("From2:", from)
 
-			rawValue := new(big.Int).SetBytes(vLog.Data[:32])
-
 			var blockTsMs int64
 			header, err := client.HeaderByNumber(context.Background(), big.NewInt(int64(vLog.BlockNumber)))
 			if err != nil {
