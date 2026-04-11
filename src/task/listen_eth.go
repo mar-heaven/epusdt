@@ -57,9 +57,7 @@ func StartEthereumWebSocketListener() {
 			usdtContract,
 			usdcContract,
 		},
-		Topics: [][]common.Hash{
-			//{transferEventHash},
-		},
+		Topics: [][]common.Hash{},
 	}
 
 	// 订阅日志（核心）
@@ -89,36 +87,17 @@ func StartEthereumWebSocketListener() {
 			if event != transferEventHash.String() {
 				continue
 			}
-			from := common.HexToAddress(vLog.Topics[1].Hex()).Hex()
-			to := common.HexToAddress(vLog.Topics[2].Hex()).Hex()
-
-			// 只关心转入
-			//if strings.ToLower(to) != targetAddress {
-			//	continue
-			//}
 
 			// value 在 data 中
 			amount := new(big.Int).SetBytes(vLog.Data)
 
-			// 判断币种
-			token := "UNKNOWN"
-			decimals := 18
-
-			if vLog.Address == usdtContract {
-				token = "USDT"
-				decimals = 6
-			} else if vLog.Address == usdcContract {
-				token = "USDC"
-				decimals = 6
-			}
-
-			log.Sugar.Infoln("=================================")
-			log.Sugar.Infoln("🎯 收款成功！")
-			log.Sugar.Infoln("Token:", token)
-			log.Sugar.Infoln("From:", from)
-			log.Sugar.Infoln("To:", to)
-			log.Sugar.Infoln("Amount:", formatAmount(amount, decimals))
-			log.Sugar.Infoln("TxHash:", vLog.TxHash.Hex())
+			//log.Sugar.Infoln("=================================")
+			//log.Sugar.Infoln("🎯 收款成功！")
+			//log.Sugar.Infoln("Token:", token)
+			//log.Sugar.Infoln("From:", from)
+			//log.Sugar.Infoln("To:", to)
+			//log.Sugar.Infoln("Amount:", formatAmount(amount, decimals))
+			//log.Sugar.Infoln("TxHash:", vLog.TxHash.Hex())
 
 			log.Sugar.Infoln(event, transferEventHash.String(), event == transferEventHash.String())
 			if event != transferEventHash.String() {
@@ -129,7 +108,6 @@ func StartEthereumWebSocketListener() {
 			if !isWatchedEthRecipient(toAddr) {
 				continue
 			}
-			log.Sugar.Infoln("From2:", from)
 
 			var blockTsMs int64
 			header, err := client.HeaderByNumber(context.Background(), big.NewInt(int64(vLog.BlockNumber)))

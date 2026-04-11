@@ -286,7 +286,7 @@ func TryProcessEthereumERC20Transfer(contract common.Address, toAddr common.Addr
 	decimalQuant := decimal.NewFromBigInt(rawValue, 0)
 	amount := math.MustParsePrecFloat64(decimalQuant.Div(decimal.NewFromInt(1_000_000)).InexactFloat64(), 2)
 	if amount <= 0 {
-		log.Sugar.Infof("[ETH-%s][%s] skip non-positive amount %.2f", tokenSym, walletAddr, amount)
+		log.Sugar.Warnf("[ETH-%s][%s] skip non-positive amount %.2f", tokenSym, walletAddr, amount)
 		return
 	}
 
@@ -328,7 +328,7 @@ func TryProcessEthereumERC20Transfer(contract common.Address, toAddr common.Addr
 		BlockTransactionId: txHash,
 	}
 	log.Sugar.Infof("[ETH-%s][%s] processing transfer trade_id=%s hash=%s amount=%.2f", tokenSym, walletAddr, tradeID, txHash, amount)
-	return
+	//return
 	err = OrderProcessing(req)
 	if err != nil {
 		if errors.Is(err, constant.OrderBlockAlreadyProcess) || errors.Is(err, constant.OrderStatusConflict) {

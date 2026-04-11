@@ -2,6 +2,7 @@ package data
 
 import (
 	"errors"
+	"github.com/assimon/luuu/util/log"
 	"strings"
 	"time"
 
@@ -112,6 +113,7 @@ func UpdateOrderIsExpirationById(id uint64, expirationCutoff time.Time) (bool, e
 func GetTradeIdByWalletAddressAndAmountAndToken(network string, address string, token string, amount float64) (string, error) {
 	scaledAmount, _ := normalizeLockAmount(amount)
 	var lock mdb.TransactionLock
+	log.Sugar.Infoln(network, address, normalizeLockToken(token), scaledAmount, time.Now())
 	err := dao.RuntimeDB.Model(&mdb.TransactionLock{}).
 		Where("network = ?", network).
 		Where("address = ?", address).
