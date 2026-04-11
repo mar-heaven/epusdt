@@ -258,7 +258,6 @@ func checkTrc20Transfers(address string, wg *sync.WaitGroup) {
 	}
 }
 
-// TryProcessEthereumERC20Transfer 处理主网 USDT/USDC Transfer 日志（WebSocket 订阅回调）。
 func TryProcessEthereumERC20Transfer(contract common.Address, toAddr common.Address, rawValue *big.Int, txHash string, blockTsMs int64) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -317,7 +316,6 @@ func TryProcessEthereumERC20Transfer(contract common.Address, toAddr common.Addr
 		log.Sugar.Warnf("[ETH-%s][%s] skip tx %s block time %d before order %d", tokenSym, walletAddr, txHash, blockTsMs, createTime)
 		return
 	}
-
 	req := &request.OrderProcessingRequest{
 		ReceiveAddress:     walletAddr,
 		Token:              tokenSym,

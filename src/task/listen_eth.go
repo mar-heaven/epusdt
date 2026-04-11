@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"github.com/assimon/luuu/model/data"
 	"github.com/assimon/luuu/model/mdb"
-	"log"
+	"github.com/assimon/luuu/model/service"
+	"github.com/assimon/luuu/util/log"
 	"math/big"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -17,8 +19,6 @@ import (
 )
 
 var (
-	// 你的收款地址（可以多个）
-	targetAddress = strings.ToLower("0xYourWalletAddress")
 
 	// USDT / USDC 合约地址（ETH 主网）
 	usdtContract = common.HexToAddress("0xdAC17F958D2ee523a2206206994597C13D831ec7")
@@ -37,7 +37,7 @@ var ethWatchedRecipients atomic.Pointer[ethRecipientSnapshot]
 func StartEthereumWebSocketListener() {
 	wallets, err := data.GetAvailableWalletAddressByNetwork(mdb.NetworkEthereum)
 	if err != nil {
-		log.Fatalf("Failed to get wallet addresses: %v", err)
+		log.Sugar.Fatalf("Failed to get wallet addresses: %v", err)
 		return
 	}
 	StoreEthRecipientsFromWallets(wallets)
@@ -45,7 +45,7 @@ func StartEthereumWebSocketListener() {
 
 	client, err := ethclient.Dial(wsURL)
 	if err != nil {
-		log.Fatal("连接失败:", err)
+		log.Sugar.Fatal("连接失败:", err)
 	}
 
 	// 创建日志通道
@@ -65,7 +65,7 @@ func StartEthereumWebSocketListener() {
 	// 订阅日志（核心）
 	sub, err := client.SubscribeFilterLogs(context.Background(), query, logsCh)
 	if err != nil {
-		log.Fatal("订阅失败:", err)
+		log.Sugar.Fatal("订阅失败:", err)
 	}
 
 	fmt.Println("🚀 开始监听 USDT / USDC 收款...")
@@ -73,7 +73,7 @@ func StartEthereumWebSocketListener() {
 	for {
 		select {
 		case err := <-sub.Err():
-			log.Fatal("订阅错误:", err)
+			log.Sugar.Fatal("订阅错误:", err)
 
 		case vLog := <-logsCh:
 
@@ -88,36 +88,24 @@ func StartEthereumWebSocketListener() {
 			if event != transferEventHash.String() {
 				continue
 			}
-			from := common.HexToAddress(vLog.Topics[1].Hex()).Hex()
-			to := common.HexToAddress(vLog.Topics[2].Hex()).Hex()
+			toAddr := common.HexToAddress(vLog.Topics[2].Hex())
 
-			// 只关心转入
-			//if strings.ToLower(to) != targetAddress {
-			//	continue
-			//}
-
-			// value 在 data 中
-			amount := new(big.Int).SetBytes(vLog.Data)
-
-			// 判断币种
-			token := "UNKNOWN"
-			decimals := 18
-
-			if vLog.Address == usdtContract {
-				token = "USDT"
-				decimals = 6
-			} else if vLog.Address == usdcContract {
-				token = "USDC"
-				decimals = 6
+			if !isWatchedEthRecipient(toAddr) {
+				continue
 			}
 
-			fmt.Println("=================================")
-			fmt.Println("🎯 收款成功！")
-			fmt.Println("Token:", token)
-			fmt.Println("From:", from)
-			fmt.Println("To:", to)
-			fmt.Println("Amount:", formatAmount(amount, decimals))
-			fmt.Println("TxHash:", vLog.TxHash.Hex())
+			rawValue := new(big.Int).SetBytes(vLog.Data[:32])
+
+			var blockTsMs int64
+			header, err := client.HeaderByNumber(context.Background(), big.NewInt(int64(vLog.BlockNumber)))
+			if err != nil {
+				log.Sugar.Warnf("[ETH-WS] HeaderByNumber block=%d: %v, using local time", vLog.BlockNumber, err)
+				blockTsMs = time.Now().UnixMilli()
+			} else {
+				blockTsMs = int64(header.Time) * 1000
+			}
+
+			service.TryProcessEthereumERC20Transfer(vLog.Address, toAddr, rawValue, vLog.TxHash.Hex(), blockTsMs)
 		}
 	}
 }
@@ -133,6 +121,15 @@ func StoreEthRecipientsFromWallets(wallets []mdb.WalletAddress) int {
 	}
 	ethWatchedRecipients.Store(&ethRecipientSnapshot{addrs: m})
 	return len(m)
+}
+
+func isWatchedEthRecipient(to common.Address) bool {
+	snap := ethWatchedRecipients.Load()
+	if snap == nil || len(snap.addrs) == 0 {
+		return false
+	}
+	_, ok := snap.addrs[strings.ToLower(to.Hex())]
+	return ok
 }
 
 func formatAmount(amount *big.Int, decimals int) string {
