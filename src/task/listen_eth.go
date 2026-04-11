@@ -84,7 +84,42 @@ func StartEthereumWebSocketListener() {
 			if len(vLog.Topics) < 3 {
 				continue
 			}
+
 			event := vLog.Topics[0].String()
+			if event != transferEventHash.String() {
+				continue
+			}
+			from := common.HexToAddress(vLog.Topics[1].Hex()).Hex()
+			to := common.HexToAddress(vLog.Topics[2].Hex()).Hex()
+
+			// 只关心转入
+			//if strings.ToLower(to) != targetAddress {
+			//	continue
+			//}
+
+			// value 在 data 中
+			amount := new(big.Int).SetBytes(vLog.Data)
+
+			// 判断币种
+			token := "UNKNOWN"
+			decimals := 18
+
+			if vLog.Address == usdtContract {
+				token = "USDT"
+				decimals = 6
+			} else if vLog.Address == usdcContract {
+				token = "USDC"
+				decimals = 6
+			}
+
+			fmt.Println("=================================")
+			fmt.Println("🎯 收款成功！")
+			fmt.Println("Token:", token)
+			fmt.Println("From:", from)
+			fmt.Println("To:", to)
+			fmt.Println("Amount:", formatAmount(amount, decimals))
+			fmt.Println("TxHash:", vLog.TxHash.Hex())
+
 			if event != transferEventHash.String() {
 				continue
 			}
