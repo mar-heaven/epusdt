@@ -1,0 +1,152 @@
+package task
+
+import (
+	"context"
+	"fmt"
+	"github.com/assimon/luuu/model/data"
+	"github.com/assimon/luuu/model/mdb"
+	"log"
+	"math/big"
+	"strings"
+	"sync/atomic"
+
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
+)
+
+var (
+	// 你的收款地址（可以多个）
+	targetAddress = strings.ToLower("0xYourWalletAddress")
+
+	// USDT / USDC 合约地址（ETH 主网）
+	usdtContract = common.HexToAddress("0xdAC17F958D2ee523a2206206994597C13D831ec7")
+	usdcContract = common.HexToAddress("0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48")
+
+	// Transfer 事件签名
+	transferEventHash = common.HexToHash("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")
+)
+
+type ethRecipientSnapshot struct {
+	addrs map[string]struct{}
+}
+
+var ethWatchedRecipients atomic.Pointer[ethRecipientSnapshot]
+
+func StartEthereumWebSocketListener() {
+	wallets, err := data.GetAvailableWalletAddressByNetwork(mdb.NetworkEthereum)
+	if err != nil {
+		log.Fatalf("Failed to get wallet addresses: %v", err)
+		return
+	}
+	StoreEthRecipientsFromWallets(wallets)
+	wsURL := "wss://ethereum.publicnode.com"
+
+	client, err := ethclient.Dial(wsURL)
+	if err != nil {
+		log.Fatal("连接失败:", err)
+	}
+
+	// 创建日志通道
+	logsCh := make(chan types.Log)
+
+	// 订阅条件
+	query := ethereum.FilterQuery{
+		Addresses: []common.Address{
+			usdtContract,
+			usdcContract,
+		},
+		Topics: [][]common.Hash{
+			//{transferEventHash},
+		},
+	}
+
+	// 订阅日志（核心）
+	sub, err := client.SubscribeFilterLogs(context.Background(), query, logsCh)
+	if err != nil {
+		log.Fatal("订阅失败:", err)
+	}
+
+	fmt.Println("🚀 开始监听 USDT / USDC 收款...")
+
+	for {
+		select {
+		case err := <-sub.Err():
+			log.Fatal("订阅错误:", err)
+
+		case vLog := <-logsCh:
+
+			// topics:
+			// [0] Transfer event
+			// [1] from
+			// [2] to
+			if len(vLog.Topics) < 3 {
+				continue
+			}
+			event := vLog.Topics[0].String()
+			if event != transferEventHash.String() {
+				continue
+			}
+			from := common.HexToAddress(vLog.Topics[1].Hex()).Hex()
+			to := common.HexToAddress(vLog.Topics[2].Hex()).Hex()
+
+			// 只关心转入
+			//if strings.ToLower(to) != targetAddress {
+			//	continue
+			//}
+
+			// value 在 data 中
+			amount := new(big.Int).SetBytes(vLog.Data)
+
+			// 判断币种
+			token := "UNKNOWN"
+			decimals := 18
+
+			if vLog.Address == usdtContract {
+				token = "USDT"
+				decimals = 6
+			} else if vLog.Address == usdcContract {
+				token = "USDC"
+				decimals = 6
+			}
+
+			fmt.Println("=================================")
+			fmt.Println("🎯 收款成功！")
+			fmt.Println("Token:", token)
+			fmt.Println("From:", from)
+			fmt.Println("To:", to)
+			fmt.Println("Amount:", formatAmount(amount, decimals))
+			fmt.Println("TxHash:", vLog.TxHash.Hex())
+		}
+	}
+}
+
+func StoreEthRecipientsFromWallets(wallets []mdb.WalletAddress) int {
+	m := make(map[string]struct{})
+	for _, w := range wallets {
+		a := strings.TrimSpace(w.Address)
+		if !common.IsHexAddress(a) {
+			continue
+		}
+		m[strings.ToLower(common.HexToAddress(a).Hex())] = struct{}{}
+	}
+	ethWatchedRecipients.Store(&ethRecipientSnapshot{addrs: m})
+	return len(m)
+}
+
+func formatAmount(amount *big.Int, decimals int) string {
+	f := new(big.Float).SetInt(amount)
+	divisor := new(big.Float).SetFloat64(float64Pow(10, decimals))
+	result := new(big.Float).Quo(f, divisor)
+
+	return result.Text('f', 6)
+}
+
+func float64Pow(a, b int) float64 {
+	result := 1.0
+	for i := 0; i < b; i++ {
+		result *= float64(a)
+	}
+	return result
+}
