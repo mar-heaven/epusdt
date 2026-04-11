@@ -120,6 +120,7 @@ func StartEthereumWebSocketListener() {
 			log.Sugar.Infoln("Amount:", formatAmount(amount, decimals))
 			log.Sugar.Infoln("TxHash:", vLog.TxHash.Hex())
 
+			log.Sugar.Infoln(event, transferEventHash.String(), event == transferEventHash.String())
 			if event != transferEventHash.String() {
 				continue
 			}
@@ -128,6 +129,7 @@ func StartEthereumWebSocketListener() {
 			if !isWatchedEthRecipient(toAddr) {
 				continue
 			}
+			log.Sugar.Infoln("From2:", from)
 
 			rawValue := new(big.Int).SetBytes(vLog.Data[:32])
 
