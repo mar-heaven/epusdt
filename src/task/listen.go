@@ -1,12 +1,16 @@
 package task
 
 import (
+	"context"
+
 	"github.com/assimon/luuu/util/log"
 	"github.com/robfig/cron/v3"
 )
 
 func Start() {
 	log.Sugar.Info("[task] Starting task scheduler...")
+	go StartEthereumWebSocketListener(context.Background())
+
 	c := cron.New()
 	// trc20钱包监听
 	_, err := c.AddJob("@every 5s", ListenTrc20Job{})
