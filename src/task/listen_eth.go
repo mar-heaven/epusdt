@@ -112,13 +112,13 @@ func StartEthereumWebSocketListener() {
 				decimals = 6
 			}
 
-			fmt.Println("=================================")
-			fmt.Println("🎯 收款成功！")
-			fmt.Println("Token:", token)
-			fmt.Println("From:", from)
-			fmt.Println("To:", to)
-			fmt.Println("Amount:", formatAmount(amount, decimals))
-			fmt.Println("TxHash:", vLog.TxHash.Hex())
+			log.Sugar.Infoln("=================================")
+			log.Sugar.Infoln("🎯 收款成功！")
+			log.Sugar.Infoln("Token:", token)
+			log.Sugar.Infoln("From:", from)
+			log.Sugar.Infoln("To:", to)
+			log.Sugar.Infoln("Amount:", formatAmount(amount, decimals))
+			log.Sugar.Infoln("TxHash:", vLog.TxHash.Hex())
 
 			if event != transferEventHash.String() {
 				continue
