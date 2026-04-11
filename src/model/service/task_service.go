@@ -261,7 +261,7 @@ func checkTrc20Transfers(address string, wg *sync.WaitGroup) {
 func TryProcessEthereumERC20Transfer(contract common.Address, toAddr common.Address, rawValue *big.Int, txHash string, blockTsMs int64) {
 	defer func() {
 		if err := recover(); err != nil {
-			log.Sugar.Errorf("[ETH-WS] TryProcessEthereumERC20Transfer panic: %v", err)
+			log.Sugar.Infof("[ETH-WS] TryProcessEthereumERC20Transfer panic: %v", err)
 		}
 	}()
 
@@ -280,43 +280,43 @@ func TryProcessEthereumERC20Transfer(contract common.Address, toAddr common.Addr
 
 	walletAddr := strings.ToLower(toAddr.Hex())
 	if rawValue == nil || rawValue.Sign() <= 0 {
-		log.Sugar.Debugf("[ETH-%s][%s] skip non-positive or nil amount", tokenSym, walletAddr)
+		log.Sugar.Infof("[ETH-%s][%s] skip non-positive or nil amount", tokenSym, walletAddr)
 		return
 	}
 	decimalQuant := decimal.NewFromBigInt(rawValue, 0)
 	amount := math.MustParsePrecFloat64(decimalQuant.Div(decimal.NewFromInt(1_000_000)).InexactFloat64(), 2)
 	if amount <= 0 {
-		log.Sugar.Debugf("[ETH-%s][%s] skip non-positive amount %.2f", tokenSym, walletAddr, amount)
+		log.Sugar.Infof("[ETH-%s][%s] skip non-positive amount %.2f", tokenSym, walletAddr, amount)
 		return
 	}
 
 	tradeID, err := data.GetTradeIdByWalletAddressAndAmountAndToken(mdb.NetworkEthereum, walletAddr, tokenSym, amount)
 	if err != nil {
-		log.Sugar.Errorf("[ETH-%s][%s] lock lookup: %v", tokenSym, walletAddr, err)
+		log.Sugar.Infof("[ETH-%s][%s] lock lookup: %v", tokenSym, walletAddr, err)
 		return
 	}
 	if tradeID == "" {
-		log.Sugar.Debugf("[ETH-%s][%s] skip unmatched tx hash=%s amount=%.2f", tokenSym, walletAddr, txHash, amount)
+		log.Sugar.Infof("[ETH-%s][%s] skip unmatched tx hash=%s amount=%.2f", tokenSym, walletAddr, txHash, amount)
 		return
 	}
 
 	order, err := data.GetOrderInfoByTradeId(tradeID)
 	if err != nil {
-		log.Sugar.Errorf("[ETH-%s][%s] load order: %v", tokenSym, walletAddr, err)
+		log.Sugar.Infof("[ETH-%s][%s] load order: %v", tokenSym, walletAddr, err)
 		return
 	}
 	if strings.ToLower(strings.TrimSpace(order.Network)) != mdb.NetworkEthereum {
-		log.Sugar.Debugf("[ETH-%s][%s] skip trade_id=%s network=%q", tokenSym, walletAddr, tradeID, order.Network)
+		log.Sugar.Infof("[ETH-%s][%s] skip trade_id=%s network=%q", tokenSym, walletAddr, tradeID, order.Network)
 		return
 	}
 	if strings.ToUpper(strings.TrimSpace(order.Token)) != tokenSym {
-		log.Sugar.Debugf("[ETH-%s][%s] skip trade_id=%s token mismatch order=%s", tokenSym, walletAddr, tradeID, order.Token)
+		log.Sugar.Infof("[ETH-%s][%s] skip trade_id=%s token mismatch order=%s", tokenSym, walletAddr, tradeID, order.Token)
 		return
 	}
 
 	createTime := order.CreatedAt.TimestampMilli()
 	if blockTsMs < createTime {
-		log.Sugar.Warnf("[ETH-%s][%s] skip tx %s block time %d before order %d", tokenSym, walletAddr, txHash, blockTsMs, createTime)
+		log.Sugar.Infof("[ETH-%s][%s] skip tx %s block time %d before order %d", tokenSym, walletAddr, txHash, blockTsMs, createTime)
 		return
 	}
 	req := &request.OrderProcessingRequest{
@@ -327,7 +327,7 @@ func TryProcessEthereumERC20Transfer(contract common.Address, toAddr common.Addr
 		Amount:             amount,
 		BlockTransactionId: txHash,
 	}
-	log.Sugar.Debugf("[ETH-%s][%s] processing transfer trade_id=%s hash=%s amount=%.2f", tokenSym, walletAddr, tradeID, txHash, amount)
+	log.Sugar.Infof("[ETH-%s][%s] processing transfer trade_id=%s hash=%s amount=%.2f", tokenSym, walletAddr, tradeID, txHash, amount)
 	return
 	err = OrderProcessing(req)
 	if err != nil {
