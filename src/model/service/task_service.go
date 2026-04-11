@@ -274,6 +274,7 @@ func TryProcessEthereumERC20Transfer(contract common.Address, toAddr common.Addr
 	case usdc:
 		tokenSym = "USDC"
 	default:
+		log.Sugar.Debugf("[ETH-WS] skip unsupported contract %s", contract.Hex())
 		return
 	}
 
@@ -284,6 +285,7 @@ func TryProcessEthereumERC20Transfer(contract common.Address, toAddr common.Addr
 	decimalQuant := decimal.NewFromBigInt(rawValue, 0)
 	amount := math.MustParsePrecFloat64(decimalQuant.Div(decimal.NewFromInt(1_000_000)).InexactFloat64(), 2)
 	if amount <= 0 {
+		log.Sugar.Debugf("[ETH-%s][%s] skip non-positive amount %.2f", tokenSym, walletAddr, amount)
 		return
 	}
 
